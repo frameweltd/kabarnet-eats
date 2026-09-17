@@ -1,0 +1,29 @@
+-- ============================================================================
+-- Bootstrapping notes (not auto-run seed data, since hotels/customers/riders
+-- all key off real auth.users rows created via Supabase Auth signup).
+--
+-- To create your FIRST ADMIN account:
+--   1. Sign up normally through the app's /signup page using any role
+--      (the form doesn't offer "admin" — that's intentional, admins aren't
+--      self-service).
+--   2. In the Supabase SQL Editor, run:
+--
+--        update profiles set role = 'admin' where id = 'the-users-uuid';
+--
+--      Find the UUID under Authentication > Users in the Supabase dashboard,
+--      or by running: select id, email from auth.users;
+--
+--   3. Log out and back in — the /login page redirect logic checks
+--      profiles.role and will now send you to /admin.
+--
+-- To add TEST hotels/menu items for development, sign up a couple of hotel
+-- accounts through /signup?role=hotel, then either:
+--   a) approve them via the admin dashboard (Hotels > Activate), or
+--   b) run this in SQL Editor for instant activation during dev:
+--
+--        update hotels set status = 'active' where hotel_id = 'the-uuid';
+--
+-- Menu items, customers, and orders are all meant to be created through the
+-- app UI so the RLS policies and triggers exercise the real code paths —
+-- there's deliberately no raw INSERT seed data here.
+-- ============================================================================
