@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
 
@@ -35,8 +36,7 @@ export function createClient() {
  * NEVER import this into anything that runs in the browser.
  */
 export function createServiceClient() {
-  const { createClient: createRawClient } = require("@supabase/supabase-js");
-  return createRawClient<Database>(
+  return createSupabaseJsClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
