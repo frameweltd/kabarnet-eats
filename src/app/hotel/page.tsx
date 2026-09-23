@@ -28,7 +28,16 @@ const STATUS_LABELS: Record<string, string> = {
 export default function HotelOrdersPage() {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  // IMPORTANT: createClient() must only run once per component instance,
+  // not on every render. Previously this called createClient() directly
+  // in the render body, which created a brand-new Supabase client (and
+  // therefore a brand-new realtime connection) on every re-render. Since
+  // that new client object was a dependency of the useEffect below, React
+  // saw it as "changed" every render, tore down the old WebSocket
+  // subscription, and opened a new one — an endless connect/disconnect
+  // loop that meant no subscription ever lived long enough to deliver an
+  // event. useState's lazy initializer runs exactly once.
+  const [supabase] = useState(() => createClient());
 
   const loadOrders = useCallback(async () => {
     const {

@@ -25,7 +25,9 @@ export default function CustomerOrderDetailPage({
 }) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [showDispute, setShowDispute] = useState(false);
-  const supabase = createClient();
+  // See hotel/page.tsx for why this must be useState, not a plain const —
+  // recreating the client on every render breaks the realtime subscription.
+  const [supabase] = useState(() => createClient());
 
   const loadOrder = useCallback(async () => {
     const { data } = await supabase

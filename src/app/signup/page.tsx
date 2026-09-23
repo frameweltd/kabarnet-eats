@@ -39,6 +39,32 @@ export default function SignupPage() {
 
     const userId = authData.user.id;
 
+    // Wait for the session to be fully established before inserting
+    // dependent rows, since RLS checks rely on an active session.
+    // Right after signUp(), the session cookie may not have propagated
+    // yet, which can cause the very next insert to silently fail RLS
+    // checks in an intermittent, hard-to-reproduce way.
+    let sessionReady = false;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user?.id === userId) {
+        sessionReady = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    if (!sessionReady) {
+      setError(
+        "Account created, but your session took too long to start. Please log in."
+      );
+      setLoading(false);
+      router.push("/login");
+      return;
+    }
+
     // Create the shared profile row
     const { error: profileError } = await supabase.from("profiles").insert({
       id: userId,
