@@ -11,6 +11,10 @@ interface PendingPayoutRow {
   gross_sales: number;
   total_commission: number;
   net_payout_owed: number;
+  mpesa_orders: number;
+  mpesa_payout_owed_to_hotel: number;
+  cash_orders: number;
+  cash_commission_owed_to_platform: number;
 }
 
 export default function AdminSettlementsPage() {
@@ -19,7 +23,7 @@ export default function AdminSettlementsPage() {
   const [periodStart, setPeriodStart] = useState(defaultWeekStart());
   const [periodEnd, setPeriodEnd] = useState(defaultWeekEnd());
   const [generating, setGenerating] = useState<string | null>(null);
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const loadPending = useCallback(async () => {
     const { data, error } = await supabase
@@ -54,9 +58,45 @@ export default function AdminSettlementsPage() {
 
   if (loading) return <p className="text-gray-500">Loading…</p>;
 
+  const totalToCollect = rows.reduce(
+    (sum, r) => sum + Number(r.cash_commission_owed_to_platform),
+    0
+  );
+  const totalToPayOut = rows.reduce(
+    (sum, r) => sum + Number(r.mpesa_payout_owed_to_hotel),
+    0
+  );
+
   return (
     <div>
       <h2 className="text-lg font-semibold mb-2">Pending settlements</h2>
+
+      <div className="grid grid-cols-2 gap-4 mb-6 max-w-lg">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="text-xs text-amber-700 font-medium">
+            You need to COLLECT (cash orders)
+          </p>
+          <p className="text-xl font-semibold text-amber-900 mt-1">
+            {formatKES(totalToCollect)}
+          </p>
+          <p className="text-xs text-amber-700 mt-1">
+            Hotels collected this cash directly — they owe you this
+            commission.
+          </p>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-xs text-blue-700 font-medium">
+            You need to PAY OUT (M-Pesa orders)
+          </p>
+          <p className="text-xl font-semibold text-blue-900 mt-1">
+            {formatKES(totalToPayOut)}
+          </p>
+          <p className="text-xs text-blue-700 mt-1">
+            You collected this via M-Pesa — hotels are owed this back.
+          </p>
+        </div>
+      </div>
+
       <div className="flex gap-3 items-end mb-4">
         <div>
           <label className="block text-xs font-medium mb-1">
@@ -88,10 +128,10 @@ export default function AdminSettlementsPage() {
             <thead>
               <tr className="text-left border-b">
                 <th className="p-3">Hotel</th>
-                <th className="p-3">Orders</th>
-                <th className="p-3">Gross sales</th>
-                <th className="p-3">Commission</th>
-                <th className="p-3">Net payout</th>
+                <th className="p-3">Cash orders</th>
+                <th className="p-3 text-amber-700">Collect from hotel</th>
+                <th className="p-3">M-Pesa orders</th>
+                <th className="p-3 text-blue-700">Pay to hotel</th>
                 <th className="p-3">Action</th>
               </tr>
             </thead>
@@ -99,13 +139,17 @@ export default function AdminSettlementsPage() {
               {rows.map((row) => (
                 <tr key={row.hotel_id} className="border-b last:border-0">
                   <td className="p-3 font-medium">{row.hotel_name}</td>
-                  <td className="p-3">{row.pending_orders}</td>
-                  <td className="p-3">{formatKES(Number(row.gross_sales))}</td>
-                  <td className="p-3">
-                    {formatKES(Number(row.total_commission))}
+                  <td className="p-3">{row.cash_orders}</td>
+                  <td className="p-3 text-amber-700 font-medium">
+                    {row.cash_orders > 0
+                      ? formatKES(Number(row.cash_commission_owed_to_platform))
+                      : "—"}
                   </td>
-                  <td className="p-3 font-medium">
-                    {formatKES(Number(row.net_payout_owed))}
+                  <td className="p-3">{row.mpesa_orders}</td>
+                  <td className="p-3 text-blue-700 font-medium">
+                    {row.mpesa_orders > 0
+                      ? formatKES(Number(row.mpesa_payout_owed_to_hotel))
+                      : "—"}
                   </td>
                   <td className="p-3">
                     <button
@@ -124,12 +168,25 @@ export default function AdminSettlementsPage() {
           </table>
         </div>
       )}
-      <p className="text-xs text-gray-500 mt-3">
-        Generating a batch locks in all pending commission records within the
-        selected period as &quot;settled&quot; and creates a payout record.
-        Actually sending the money (M-Pesa B2C or bank transfer) is a manual
-        step outside this app for now — mark it paid afterward.
-      </p>
+      <div className="text-xs text-gray-500 mt-3 space-y-1">
+        <p>
+          <strong className="text-amber-700">Collect from hotel</strong>:
+          customers paid the hotel directly in cash, so the hotel owes you
+          this commission. Contact the hotel to collect it (cash, M-Pesa, or
+          however you arrange it).
+        </p>
+        <p>
+          <strong className="text-blue-700">Pay to hotel</strong>: customers
+          paid via M-Pesa into your account, so you owe the hotel their share
+          back.
+        </p>
+        <p>
+          Generating a batch locks in all pending commission records within
+          the selected period as &quot;settled&quot; for that hotel. Actually
+          sending or collecting the money is a manual step outside this app —
+          do that first, then generate the batch as your record of it.
+        </p>
+      </div>
     </div>
   );
 }
