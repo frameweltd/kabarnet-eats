@@ -28,15 +28,6 @@ const STATUS_LABELS: Record<string, string> = {
 export default function HotelOrdersPage() {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
-  // IMPORTANT: createClient() must only run once per component instance,
-  // not on every render. Previously this called createClient() directly
-  // in the render body, which created a brand-new Supabase client (and
-  // therefore a brand-new realtime connection) on every re-render. Since
-  // that new client object was a dependency of the useEffect below, React
-  // saw it as "changed" every render, tore down the old WebSocket
-  // subscription, and opened a new one — an endless connect/disconnect
-  // loop that meant no subscription ever lived long enough to deliver an
-  // event. useState's lazy initializer runs exactly once.
   const [supabase] = useState(() => createClient());
 
   const loadOrders = useCallback(async () => {
@@ -59,20 +50,14 @@ export default function HotelOrdersPage() {
   useEffect(() => {
     loadOrders();
 
-    // Real-time updates: new orders pop in automatically
-    const channel = supabase
-      .channel("hotel-orders")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => loadOrders()
-      )
-      .subscribe();
+    const intervalId = setInterval(() => {
+      loadOrders();
+    }, 5000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(intervalId);
     };
-  }, [loadOrders, supabase]);
+  }, [loadOrders]);
 
   async function advanceStatus(orderId: string, currentStatus: string) {
     const next = NEXT_STATUS[currentStatus];
@@ -84,7 +69,7 @@ export default function HotelOrdersPage() {
       .eq("order_id", orderId);
 
     if (error) {
-      alert(`Could not update order: ${error.message}`);
+      alert("Could not update order: " + error.message);
       return;
     }
     loadOrders();
@@ -100,13 +85,13 @@ export default function HotelOrdersPage() {
       .eq("order_id", orderId);
 
     if (error) {
-      alert(`Could not cancel: ${error.message}`);
+      alert("Could not cancel: " + error.message);
       return;
     }
     loadOrders();
   }
 
-  if (loading) return <p className="text-gray-500">Loading orders…</p>;
+  if (loading) return <p className="text-gray-500">Loading orders...</p>;
 
   if (orders.length === 0) {
     return (
@@ -130,7 +115,7 @@ export default function HotelOrdersPage() {
                 {STATUS_LABELS[order.status]}
               </span>
               <p className="text-sm text-gray-500 mt-1">
-                Order #{order.order_id.slice(0, 8)} ·{" "}
+                Order #{order.order_id.slice(0, 8)} -{" "}
                 {new Date(order.placed_at).toLocaleString("en-KE")}
               </p>
             </div>
@@ -140,7 +125,7 @@ export default function HotelOrdersPage() {
           <ul className="mt-3 text-sm text-gray-700 space-y-1">
             {order.order_items?.map((item) => (
               <li key={item.order_item_id}>
-                {item.quantity}× {item.item_name_snapshot} —{" "}
+                {item.quantity}x {item.item_name_snapshot} -{" "}
                 {formatKES(item.line_total)}
               </li>
             ))}
@@ -148,12 +133,12 @@ export default function HotelOrdersPage() {
 
           {order.delivery_landmark && (
             <p className="mt-2 text-sm text-gray-500">
-              📍 {order.delivery_landmark}
+              Location: {order.delivery_landmark}
             </p>
           )}
           {order.delivery_contact_phone && (
             <p className="text-sm text-gray-500">
-              ☎ {order.delivery_contact_phone}
+              Phone: {order.delivery_contact_phone}
             </p>
           )}
 

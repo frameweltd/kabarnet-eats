@@ -25,8 +25,6 @@ export default function CustomerOrderDetailPage({
 }) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [showDispute, setShowDispute] = useState(false);
-  // See hotel/page.tsx for why this must be useState, not a plain const —
-  // recreating the client on every render breaks the realtime subscription.
   const [supabase] = useState(() => createClient());
 
   const loadOrder = useCallback(async () => {
@@ -41,26 +39,16 @@ export default function CustomerOrderDetailPage({
   useEffect(() => {
     loadOrder();
 
-    const channel = supabase
-      .channel(`order-${params.orderId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "orders",
-          filter: `order_id=eq.${params.orderId}`,
-        },
-        () => loadOrder()
-      )
-      .subscribe();
+    const intervalId = setInterval(() => {
+      loadOrder();
+    }, 5000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(intervalId);
     };
-  }, [loadOrder, params.orderId, supabase]);
+  }, [loadOrder]);
 
-  if (!order) return <p className="text-gray-500">Loading…</p>;
+  if (!order) return <p className="text-gray-500">Loading...</p>;
 
   const currentStepIndex = STEPS.indexOf(order.status);
   const isCancelled = order.status === "cancelled";
@@ -69,7 +57,7 @@ export default function CustomerOrderDetailPage({
     <div className="max-w-lg">
       <h2 className="text-lg font-semibold">{order.hotels?.name}</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Order #{order.order_id.slice(0, 8)} ·{" "}
+        Order #{order.order_id.slice(0, 8)} -{" "}
         {new Date(order.placed_at).toLocaleString("en-KE")}
       </p>
 
@@ -98,7 +86,7 @@ export default function CustomerOrderDetailPage({
             <div
               className="h-full bg-brand-600 transition-all"
               style={{
-                width: `${(currentStepIndex / (STEPS.length - 1)) * 100}%`,
+                width: (currentStepIndex / (STEPS.length - 1)) * 100 + "%",
               }}
             />
           </div>
@@ -111,7 +99,7 @@ export default function CustomerOrderDetailPage({
           {order.order_items?.map((item) => (
             <li key={item.order_item_id} className="flex justify-between">
               <span>
-                {item.quantity}× {item.item_name_snapshot}
+                {item.quantity}x {item.item_name_snapshot}
               </span>
               <span>{formatKES(item.line_total)}</span>
             </li>
@@ -189,7 +177,7 @@ function DisputeForm({
           <>
             <h3 className="font-semibold mb-2">Report submitted</h3>
             <p className="text-sm text-gray-600 mb-4">
-              We&apos;ll look into it and get back to you.
+              We will look into it and get back to you.
             </p>
             <button
               onClick={onClose}
@@ -226,7 +214,7 @@ function DisputeForm({
                 disabled={submitting}
                 className="flex-1 bg-brand-600 text-white py-2 rounded-md text-sm disabled:opacity-50"
               >
-                {submitting ? "Submitting…" : "Submit"}
+                {submitting ? "Submitting..." : "Submit"}
               </button>
               <button
                 type="button"
