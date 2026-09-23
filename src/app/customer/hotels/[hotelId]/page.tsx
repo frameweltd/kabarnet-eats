@@ -17,7 +17,7 @@ export default function HotelMenuBrowsePage({
   params: { hotelId: string };
 }) {
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [cart, setCart] = useState<Record<string, CartLine>>({});
@@ -89,7 +89,7 @@ export default function HotelMenuBrowsePage({
     (sum, line) => sum + line.item.price * line.quantity,
     0
   );
-  const deliveryFee = subtotal > 0 ? 50 : 0; // flat fee placeholder — adjust as needed
+  const deliveryFee = subtotal > 0 ? 50 : 0;
   const total = subtotal + deliveryFee;
 
   async function placeOrder() {
@@ -163,17 +163,24 @@ export default function HotelMenuBrowsePage({
       return;
     }
 
-    await supabase.from("payments").insert({
+    const { error: paymentError } = await supabase.from("payments").insert({
       order_id: orderId,
       method: paymentMethod,
       amount: total,
-      status: paymentMethod === "cash" ? "pending" : "pending",
+      status: "pending",
     });
 
-    router.push(`/customer/orders/${orderId}`);
+    if (paymentError) {
+      setError(
+        "Order placed, but recording payment failed: " + paymentError.message + ". Please contact support."
+      );
+      setPlacing(false);
+    }
+
+    router.push("/customer/orders/" + orderId);
   }
 
-  if (!hotel) return <p className="text-gray-500">Loading…</p>;
+  if (!hotel) return <p className="text-gray-500">Loading...</p>;
 
   const grouped = items.reduce<Record<string, MenuItem[]>>((acc, item) => {
     const cat = item.category || "Menu";
@@ -214,7 +221,7 @@ export default function HotelMenuBrowsePage({
                           onClick={() => removeFromCart(item.item_id)}
                           className="w-7 h-7 rounded-full border border-gray-300 text-gray-600"
                         >
-                          −
+                          -
                         </button>
                         <span className="w-4 text-center">
                           {cart[item.item_id].quantity}
@@ -245,7 +252,7 @@ export default function HotelMenuBrowsePage({
               {cartLines.map((line) => (
                 <li key={line.item.item_id} className="flex justify-between">
                   <span>
-                    {line.quantity}× {line.item.name}
+                    {line.quantity}x {line.item.name}
                   </span>
                   <span>{formatKES(line.item.price * line.quantity)}</span>
                 </li>
@@ -279,7 +286,7 @@ export default function HotelMenuBrowsePage({
                   >
                     {addresses.map((a) => (
                       <option key={a.address_id} value={a.address_id}>
-                        {a.label || "Address"} — {a.landmark_description}
+                        {a.label || "Address"} - {a.landmark_description}
                       </option>
                     ))}
                   </select>
@@ -296,8 +303,8 @@ export default function HotelMenuBrowsePage({
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    No saved addresses —{" "}
-                    <a
+                    No saved addresses -{" "}
+                      <a
                       href="/customer/addresses"
                       className="text-brand-600 underline"
                     >
@@ -315,21 +322,13 @@ export default function HotelMenuBrowsePage({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPaymentMethod("mpesa")}
-                    className={`flex-1 text-sm py-1.5 rounded-md border ${
-                      paymentMethod === "mpesa"
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "border-gray-300"
-                    }`}
+                    className={"flex-1 text-sm py-1.5 rounded-md border " + (paymentMethod === "mpesa" ? "bg-brand-600 text-white border-brand-600" : "border-gray-300")}
                   >
                     M-Pesa
                   </button>
                   <button
                     onClick={() => setPaymentMethod("cash")}
-                    className={`flex-1 text-sm py-1.5 rounded-md border ${
-                      paymentMethod === "cash"
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "border-gray-300"
-                    }`}
+                    className={"flex-1 text-sm py-1.5 rounded-md border " + (paymentMethod === "cash" ? "bg-brand-600 text-white border-brand-600" : "border-gray-300")}
                   >
                     Cash on delivery
                   </button>
@@ -343,7 +342,7 @@ export default function HotelMenuBrowsePage({
                 disabled={placing}
                 className="w-full bg-brand-600 text-white py-2 rounded-md font-medium disabled:opacity-50"
               >
-                {placing ? "Placing order…" : "Place order"}
+                {placing ? "Placing order..." : "Place order"}
               </button>
             </div>
           </>
