@@ -1,11 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/types/database";
 
 export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+          <p className="text-gray-500">Loading…</p>
+        </main>
+      }
+    >
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialRole = (searchParams.get("role") as UserRole) || "customer";
@@ -39,11 +53,14 @@ export default function SignupPage() {
 
     const userId = authData.user.id;
 
-    // Wait for the session to be fully established before inserting
-    // dependent rows, since RLS checks rely on an active session.
-    // Right after signUp(), the session cookie may not have propagated
-    // yet, which can cause the very next insert to silently fail RLS
-    // checks in an intermittent, hard-to-reproduce way.
+    // IMPORTANT: right after signUp(), the client-side session may not be
+    // fully established yet (cookies/session propagation can lag by a
+    // moment, especially with email confirmation disabled). Inserting
+    // into profiles/customers/hotels immediately can race against that,
+    // and RLS policies that check auth.uid() may not see the new user as
+    // authenticated yet — causing intermittent, hard-to-reproduce
+    // failures. Explicitly confirm a live session exists before
+    // continuing, retrying briefly if needed.
     let sessionReady = false;
     for (let attempt = 0; attempt < 10; attempt++) {
       const {
