@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatKES } from "@/lib/commission";
+import { formatKenyaDateTime } from "@/lib/datetime";
 import type { Order, Hotel } from "@/types/database";
 
 type OrderWithHotel = Order & { hotels: Pick<Hotel, "name"> };
@@ -40,7 +41,7 @@ export default async function CustomerOrdersPage() {
                 <div>
                   <p className="font-medium">{order.hotels?.name}</p>
                   <p className="text-sm text-gray-500">
-                    {new Date(order.placed_at).toLocaleString("en-KE")}
+                    {formatKenyaDateTime(order.placed_at)}
                   </p>
                 </div>
                 <div className="text-right">

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatKES } from "@/lib/commission";
+import { formatKenyaDateTime } from "@/lib/datetime";
 import type { Order, Hotel, Customer } from "@/types/database";
 
 type OrderRow = Order & {
@@ -35,7 +36,7 @@ export default async function AdminOrdersPage() {
             {(orders ?? []).map((order) => (
               <tr key={order.order_id} className="border-b last:border-0">
                 <td className="p-3 text-xs">
-                  {new Date(order.placed_at).toLocaleString("en-KE")}
+                  {formatKenyaDateTime(order.placed_at)}
                 </td>
                 <td className="p-3">{order.hotels?.name}</td>
                 <td className="p-3">

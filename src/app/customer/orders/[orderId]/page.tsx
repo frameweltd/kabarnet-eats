@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatKES } from "@/lib/commission";
+import { formatKenyaDateTime } from "@/lib/datetime";
 import type { Order, OrderItem, Hotel, DisputeReason } from "@/types/database";
 
 type OrderDetail = Order & {
@@ -58,7 +59,7 @@ export default function CustomerOrderDetailPage({
       <h2 className="text-lg font-semibold">{order.hotels?.name}</h2>
       <p className="text-sm text-gray-500 mb-6">
         Order #{order.order_id.slice(0, 8)} -{" "}
-        {new Date(order.placed_at).toLocaleString("en-KE")}
+        {formatKenyaDateTime(order.placed_at)}
       </p>
 
       {isCancelled ? (

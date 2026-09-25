@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatKES } from "@/lib/commission";
+import { formatKenyaDateTime } from "@/lib/datetime";
 import type { Order, OrderItem } from "@/types/database";
 
 type OrderWithItems = Order & { order_items: OrderItem[] };
@@ -116,7 +117,7 @@ export default function HotelOrdersPage() {
               </span>
               <p className="text-sm text-gray-500 mt-1">
                 Order #{order.order_id.slice(0, 8)} -{" "}
-                {new Date(order.placed_at).toLocaleString("en-KE")}
+                {formatKenyaDateTime(order.placed_at)}
               </p>
             </div>
             <p className="font-semibold">{formatKES(order.total_amount)}</p>

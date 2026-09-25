@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { formatKenyaDateTime } from "@/lib/datetime";
 import type { Dispute, DisputeStatus } from "@/types/database";
 
 export default function AdminDisputesPage() {
@@ -43,7 +44,7 @@ export default function AdminDisputesPage() {
       })
       .eq("dispute_id", disputeId);
 
-    // If resolving with a refund, cancel the underlying order — the
+    // If resolving with a refund, cancel the underlying order - the
     // commission-reversal trigger handles the accounting automatically.
     if (status === "resolved_refunded") {
       await supabase
@@ -60,7 +61,7 @@ export default function AdminDisputesPage() {
     loadDisputes();
   }
 
-  if (loading) return <p className="text-gray-500">Loading…</p>;
+  if (loading) return <p className="text-gray-500">Loading...</p>;
 
   return (
     <div>
@@ -80,9 +81,9 @@ export default function AdminDisputesPage() {
                     {dispute.reason.replace(/_/g, " ")}
                   </span>
                   <p className="text-sm text-gray-500 mt-1">
-                    Order #{dispute.order_id.slice(0, 8)} · raised by{" "}
-                    {dispute.raised_by_type} ·{" "}
-                    {new Date(dispute.created_at).toLocaleString("en-KE")}
+                    Order #{dispute.order_id.slice(0, 8)} - raised by{" "}
+                    {dispute.raised_by_type} -{" "}
+                    {formatKenyaDateTime(dispute.created_at)}
                   </p>
                 </div>
                 <span
@@ -139,7 +140,7 @@ export default function AdminDisputesPage() {
                         }
                         className="border border-gray-300 text-xs px-3 py-1.5 rounded-md"
                       >
-                        Resolve — No action
+                        Resolve - No action
                       </button>
                       <button
                         onClick={() => setResolvingId(null)}
