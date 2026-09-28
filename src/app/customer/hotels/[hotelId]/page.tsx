@@ -24,6 +24,7 @@ export default function HotelMenuBrowsePage({
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [contactPhone, setContactPhone] = useState("");
+  const [mpesaPhone, setMpesaPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "cash">("mpesa");
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +58,14 @@ export default function HotelMenuBrowsePage({
         setAddresses(addrs);
         const def = addrs.find((a) => a.is_default) ?? addrs[0];
         if (def) setSelectedAddressId(def.address_id);
+
+        const { data: custData } = await supabase
+          .from("customers")
+          .select("phone")
+          .eq("customer_id", user.id)
+          .single();
+        const custPhone = (custData as { phone?: string } | null)?.phone;
+        if (custPhone) setMpesaPhone(custPhone);
       }
     })();
   }, [params.hotelId, supabase]);
@@ -100,6 +109,10 @@ export default function HotelMenuBrowsePage({
     }
     if (!selectedAddressId && !contactPhone) {
       setError("Add a delivery address or contact phone.");
+      return;
+    }
+    if (paymentMethod === "mpesa" && !mpesaPhone.trim()) {
+      setError("Enter the M-Pesa phone number to pay with.");
       return;
     }
 
@@ -172,9 +185,35 @@ export default function HotelMenuBrowsePage({
 
     if (paymentError) {
       setError(
-        "Order placed, but recording payment failed: " + paymentError.message + ". Please contact support."
+        "Order placed, but recording payment failed: " +
+          paymentError.message +
+          ". Please contact support."
       );
       setPlacing(false);
+      router.push("/customer/orders/" + orderId);
+      return;
+    }
+
+    if (paymentMethod === "mpesa") {
+      try {
+        const res = await fetch("/api/orders/" + orderId + "/pay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: mpesaPhone }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          alert(
+            "Your order was placed, but the M-Pesa prompt could not be sent: " +
+              (body.error || "unknown error") +
+              ". You can retry payment from your order page."
+          );
+        }
+      } catch {
+        alert(
+          "Your order was placed, but the M-Pesa prompt could not be sent. You can retry payment from your order page."
+        );
+      }
     }
 
     router.push("/customer/orders/" + orderId);
@@ -302,16 +341,7 @@ export default function HotelMenuBrowsePage({
                     placeholder="07XXXXXXXX"
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    No saved addresses -{" "}
-                      <a
-                      href="/customer/addresses"
-                      className="text-brand-600 underline"
-                    >
-                      add one
-                    </a>{" "}
-                    for faster checkout next time.
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">No saved addresses. Add one from the Addresses tab for faster checkout next time.</p>
                 </div>
               )}
 
@@ -322,18 +352,45 @@ export default function HotelMenuBrowsePage({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPaymentMethod("mpesa")}
-                    className={"flex-1 text-sm py-1.5 rounded-md border " + (paymentMethod === "mpesa" ? "bg-brand-600 text-white border-brand-600" : "border-gray-300")}
+                    className={
+                      "flex-1 text-sm py-1.5 rounded-md border " +
+                      (paymentMethod === "mpesa"
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "border-gray-300")
+                    }
                   >
                     M-Pesa
                   </button>
                   <button
                     onClick={() => setPaymentMethod("cash")}
-                    className={"flex-1 text-sm py-1.5 rounded-md border " + (paymentMethod === "cash" ? "bg-brand-600 text-white border-brand-600" : "border-gray-300")}
+                    className={
+                      "flex-1 text-sm py-1.5 rounded-md border " +
+                      (paymentMethod === "cash"
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "border-gray-300")
+                    }
                   >
                     Cash on delivery
                   </button>
                 </div>
               </div>
+
+              {paymentMethod === "mpesa" && (
+                <div>
+                  <label className="block text-xs font-medium mb-1">
+                    M-Pesa phone number
+                  </label>
+                  <input
+                    value={mpesaPhone}
+                    onChange={(e) => setMpesaPhone(e.target.value)}
+                    placeholder="07XXXXXXXX"
+                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    You will get a payment prompt on this phone.
+                  </p>
+                </div>
+              )}
 
               {error && <p className="text-sm text-red-600">{error}</p>}
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { initiateStkPush, normalizeKenyanPhone } from "@/lib/mpesa";
 
 export async function POST(
@@ -20,8 +20,8 @@ export async function POST(
     return NextResponse.json({ error: "Phone number required" }, { status: 400 });
   }
 
-  // Confirm the order belongs to this customer and load the amount server-side
-  // — never trust a client-supplied amount for a payment request.
+  // Confirm the order belongs to this customer and load the amount
+  // server-side. Never trust a client-supplied amount for a payment request.
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .select("order_id, customer_id, total_amount")
@@ -34,24 +34,37 @@ export async function POST(
   }
 
   try {
+    const normalizedPhone = normalizeKenyanPhone(phoneNumber);
+
     const result = await initiateStkPush({
-      phoneNumber: normalizeKenyanPhone(phoneNumber),
+      phoneNumber: normalizedPhone,
       amount: (order as { total_amount: number }).total_amount,
       orderId: (order as { order_id: string }).order_id,
     });
 
-    // Store the CheckoutRequestID against the payment row immediately so
-    // the callback handler can match reliably instead of guessing by
-    // phone/amount/time window.
-    await supabase
+    // Store the CheckoutRequestID against the payment row so the M-Pesa
+    // callback can match it reliably. This MUST use the service-role client:
+    // the payments UPDATE policy only allows admins, so a customer-session
+    // update would be silently rejected by RLS and the callback would never
+    // be able to find this payment. Safe here because ownership of the order
+    // was already verified above.
+    const admin = createServiceClient();
+    const { error: updateError } = await admin
       .from("payments")
       .update({
         mpesa_checkout_request_id: result.checkoutRequestId,
-        phone_number_used: normalizeKenyanPhone(phoneNumber),
+        phone_number_used: normalizedPhone,
       })
       .eq("order_id", params.orderId)
       .eq("method", "mpesa")
       .eq("status", "pending");
+
+    if (updateError) {
+      return NextResponse.json(
+        { error: "Prompt sent but payment record update failed: " + updateError.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
